@@ -6,7 +6,20 @@ import ij.plugin.*;
 import ij.process.*;
 import java.util.*;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StreamTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+
 public class ASCII_reader implements PlugIn {
+	private static Pattern pattern = null;
+	private static String regex = "^[0-9]*.?[0-9]*$";
+
 	ImagePlus img;
 	ImageProcessor ip;
 	DataInputStream dis;
@@ -35,69 +48,140 @@ public class ASCII_reader implements PlugIn {
 		String directory = od.getDirectory();
 		String fileName = od.getFileName();
 		if (fileName==null) return;
+		BufferedReader fp;
+		StringTokenizer st;
 		try {
-			File f = new File(directory+fileName); 
-			FileInputStream fis = new FileInputStream(f); 
-			BufferedInputStream bis = new BufferedInputStream(fis); 
-			dis = new DataInputStream(bis);
-            	}
+			fp = new BufferedReader(new FileReader(directory+fileName));
+            }
 	catch (Exception e) {
 		IJ.error("Simple ASCII Reader FIRST", e.getMessage());
 		return;
 	}
 
 		try {
-			scan = new Scanner(dis);
-			wII = scan.nextLine();
-			filed = scan.nextLine();
-			typeOfData = scan.nextLine();  //record=dis.readLine(); // Type
-			nameOfData = scan.nextLine(); //record=dis.readLine(); // Name
-			while(!scan.hasNextInt()){
-                			scan.next();
-			}
-			width = scan.nextInt();
-                    		
-			while(!scan.hasNextInt()){
-                			scan.next();
-			}
-			height = scan.nextInt();
-
-			daTa = scan.nextLine();
-			daTa = scan.nextLine();
-			daTa = scan.nextLine();
-			daTa = scan.nextLine();
-			daTa = scan.nextLine();
-			//daTa = scan.nextLine();
-
-			img = NewImage.createFloatImage(nameOfData, width, height, 1, NewImage.FILL_BLACK);
+			
+			String line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			wII = st.nextToken();
+			
+			line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			filed = st.nextToken();
+			filed = st.nextToken();
+			
+			line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			typeOfData = st.nextToken();  //record=dis.readLine(); // Type
+			typeOfData = st.nextToken();
+			
+			line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			nameOfData = st.nextToken(); //record=dis.readLine(); // Name
+			nameOfData = st.nextToken();
+			
+			line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			String str;
+			do {
+				str = st.nextToken(); 
+			}while(!isInteger(str));
+			width = atoi(str);
+			
+			line = fp.readLine();
+			st = new StringTokenizer(line," \t\n\r\f:");
+			do {
+				str = st.nextToken(); 
+			}while(!isInteger(str));
+			height = atoi(str);
+			
+			//IJ.showMessage("START", "widtn = " + width + "\nheight = " + height);
+	
+			daTa = fp.readLine();
+			daTa = fp.readLine();
+			daTa = fp.readLine();
+			daTa = fp.readLine();
+			String name = typeOfData+"_"+fileName;
+			st = new StringTokenizer(name," \t\n\r\f:.;");
+			img = NewImage.createFloatImage(st.nextToken(), width, height, 1, NewImage.FILL_BLACK);
 			ip = img.getProcessor();	
 			
 			for(x = 0; x < height; x++) //ширина
-			    for(y = 0; y < width; y++) //высота
-				for(int i = 0; i < 3; i++)
-				      switch(i) {
- 					case 0: xxx = scan.nextDouble(); break;
-					case 1: yyy = scan.nextDouble(); break;
-					case 2: zzz = scan.nextDouble(); ip.setf(y, x, (float)zzz); break;
-			    		}
-			//img.show();
+			    for(y = 0; y < width; y++) { //высота
+					line = fp.readLine();
+					st = new StringTokenizer(line," \t\n\r\f:");
+					//st.parseNumbers();
+					xxx = atof(st.nextToken());
+					yyy = atof(st.nextToken());
+					zzz = atof(st.nextToken());
+
+					ip.setf(y, x, (float)zzz);
+			    }
+				      			//img.show();
 			img.updateAndDraw();
 
 		}
 		catch (Exception e) {
-			IJ.error("Simple ASCII Reader"+wII+filed+typeOfData+nameOfData+daTa+ IJ.d2s(width, 0)+ IJ.d2s(height, 0), e.getMessage());
+			IJ.error("Reader"+wII+filed+typeOfData+nameOfData+width + height, e.getMessage());
 			return;
 		}
 	
 		int [] www = {(int)(1000*xxx/width), (int)(1000*xxx/height), 1};
-		IJ.setColumnHeadings("  Width coeff.  \t   Heigh coeff.   \t    Z coeff.    \t     N     ");
-		IJ.write(IJ.d2s((double)www[0]/1000000, 5)+'\t'+ IJ.d2s((yyy/height)/1000, 5)+'\t'+ IJ.d2s(0.001, 5)+ '\t'+  IJ.d2s(summ, 0));
+		//IJ.setColumnHeadings("  Width coeff.  \t   Heigh coeff.   \t    Z coeff.    \t     N     ");
+		//IJ.write(IJ.d2s((double)www[0]/1000000, 5)+'\t'+ IJ.d2s((yyy/height)/1000, 5)+'\t'+ IJ.d2s(0.001, 5)+ '\t'+  IJ.d2s(summ, 0));
 		
 		img.setProperty(Key, www);
 		
 		//if (img==null) return;
 		img.show();
 		}
+
+
+	private static double atof(String s)
+	{
+		double d = Double.valueOf(s).doubleValue();
+		if (Double.isNaN(d) || Double.isInfinite(d))
+		{
+			IJ.showMessage("Error!", "NaN or Infinity in input");
+			System.exit(1);
+		}
+		return(d);
+	}
+
+	private static int atoi(String s)
+	{
+		return Integer.parseInt(s);
+	}
+	
+
+
+	private static final boolean isInteger(final String s) {
+	  boolean flag = false;
+	  for (int x = 0; x < s.length(); x++) {
+	    final char c = s.charAt(x);
+	    if (x == 0 && (c == '-')) continue;  // negative
+	    if ((c >= '0') && (c <= '9')) {flag=true; continue;}  // 0 - 9
+	    return false; // invalid
+	  }
+	  return flag; // valid
+	}
+	
+	 public boolean isNumber( String value )
+	    {
+
+	        boolean result = false;
+
+
+	        if( pattern == null )
+	            pattern = Pattern.compile( regex );
+
+	        Matcher matcher = pattern.matcher( value );
+
+	        if( matcher.matches() )
+	            result = true;
+
+	        return result;
+	    }
+
 
 
 }
